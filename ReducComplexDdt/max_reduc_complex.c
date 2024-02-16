@@ -86,8 +86,19 @@ void calc_norm_max(
        A ECRIRE
        Recuperer dans *cpl_max le nombre complexe de plus grande norme sur l'ensemble du tableau distribué
      */
+    MPI_Allreduce(tab+imax, cpl_max, 1, mpi_cpl, op_norm_max, MPI_COMM_WORLD);
 }
 
+void func_op_norm_max(void *in, void *inout, int *len, MPI_Datatype *dptr)
+{
+    complex_t *in_cpl = (complex_t*)in;
+    complex_t *inout_cpl = (complex_t*)inout;
+
+    if (norm_compl(in_cpl) > norm_compl(inout_cpl))
+    {
+        *inout_cpl = *in_cpl;
+    }
+}
 
 int main(int argc, char **argv)
 {
@@ -124,8 +135,11 @@ int main(int argc, char **argv)
 
 
     /* A COMPLETER => creer mpi_cpl */
+    MPI_Type_contiguous(2, MPI_DOUBLE, &mpi_cpl);
+    MPI_Type_commit(&mpi_cpl);
+    
     /* A COMPLETER => creer op_norm_max */
-
+    MPI_Op_create(func_op_norm_max, 1, &op_norm_max);
 
     calc_norm_max(tab, n, op_norm_max, mpi_cpl, &cpl_max);
     printf("P%d, norm = %.6e\n", rang, norm_compl(&cpl_max));
@@ -135,6 +149,8 @@ int main(int argc, char **argv)
     fclose(fd);
 
     /* A COMPLETER => liberation operateur, type derivé */
+    MPI_Type_free(&mpi_cpl);
+    MPI_Op_free(&op_norm_max);
 
     free(tab);
 
