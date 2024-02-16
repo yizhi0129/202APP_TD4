@@ -89,7 +89,8 @@ void calc_norm_max(
     MPI_Allreduce(tab+imax, cpl_max, 1, mpi_cpl, op_norm_max, MPI_COMM_WORLD);
 }
 
-void func_op_norm_max(void *in, void *inout, int *len, MPI_Datatype *dptr)
+// define a function to compare the norm of two complex numbers
+void func_op_norm_max(void *in, void *inout, int *len, MPI_Datatype *dptr) // treat len independent complexes
 {
     complex_t *in_cpl = (complex_t*)in;
     complex_t *inout_cpl = (complex_t*)inout;
