@@ -1,4 +1,4 @@
-#include <mpi.h>
+#include </usr/local/mpich-3.4.1/include/mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -29,7 +29,7 @@ int main(int argc, char **argv)
     /*
        A ECRIRE : creation communicateurs comm_row et comm_col
      */
-
+    
 
     MPI_Finalize();
 
