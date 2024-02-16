@@ -98,8 +98,33 @@ void calc_norm_max_loc(
        Recuperer dans *cpl_max_loc le nombre complexe de plus grande norme ainsi 
        que le rang sur lequel se trouve ce nombre complexe sur l'ensemble du tableau distribué
      */
+    MPI_Comm_rank(MPI_COMM_WORLD, &rang);
+    cpl_max_loc_local.real = tab[imax].real;
+    cpl_max_loc_local.imag = tab[imax].imag;
+    cpl_max_loc_local.rank = rang;    
+    MPI_Allreduce(&cpl_max_loc_local, cpl_max_loc, 1, mpi_cpl_max_loc, op_norm_max_loc, MPI_COMM_WORLD);
 }
 
+void func_op_norm_max_loc(void *ptr_a, void *ptr_b, int *len, MPI_Datatype *ddt)
+{
+    complex_loc_t *a = (complex_loc_t*)ptr_a;
+    complex_loc_t *b = (complex_loc_t*)ptr_b;
+    double norm_ai, norm_bi;
+    int i;
+
+    for(i = 0 ; i < *len ; i++)
+    {
+        norm_ai = norm_compl_ri(a[i].real, a[i].imag);
+        norm_bi = norm_compl_ri(b[i].real, b[i].imag);
+
+        if (norm_ai > norm_bi)
+        {
+            b[i].real = a[i].real;
+            b[i].imag = a[i].imag;
+            b[i].rank = a[i].rank;
+        }
+    }
+}
 
 int main(int argc, char **argv)
 {
@@ -111,6 +136,10 @@ int main(int argc, char **argv)
     MPI_Op op_norm_max_loc;
     complex_loc_t cpl_max_loc;
     MPI_Datatype mpi_cpl_max_loc;
+
+    int blocklens[3] = {1, 1, 1};
+    MPI_Aint indices[3], base;
+    MPI_Datatype old_types[3] = {MPI_DOUBLE, MPI_DOUBLE, MPI_INT};
 
     FILE *fd;
 
@@ -137,7 +166,19 @@ int main(int argc, char **argv)
 
 
     /* A COMPLETER => creer mpi_cpl_max_loc */
+    MPI_Get_address(&cpl_max_loc.real, indices+0);
+    MPI_Get_address(&cpl_max_loc.imag, indices+1);
+    MPI_Get_address(&cpl_max_loc.rank, indices+2); //absolute address
+    MPI_Get_address(&cpl_max_loc, &base);
+    indices[0] -= base;
+    indices[1] -= base;
+    indices[2] -= base; //relative address
+    
+    MPI_Type_create_struct(3, blocklens, indices, old_types, &mpi_cpl_max_loc);
+    MPI_Type_commit(&mpi_cpl_max_loc);
+
     /* A COMPLETER => creer op_norm_max_loc */
+    MPI_Op_create(func_op_norm_max_loc, 1, &op_norm_max_loc);
 
     calc_norm_max_loc(tab, n, op_norm_max_loc, mpi_cpl_max_loc, &cpl_max_loc);
     printf("P%d, norm = %.6e, rang = %d\n", rang, norm_compl_ri(cpl_max_loc.real, cpl_max_loc.imag), cpl_max_loc.rank);
@@ -148,6 +189,7 @@ int main(int argc, char **argv)
     fclose(fd);
 
     /* A COMPLETER => liberation operateur, type derivé */
+    MPI_Op_free(&op_norm_max_loc);
 
     free(tab);
 
